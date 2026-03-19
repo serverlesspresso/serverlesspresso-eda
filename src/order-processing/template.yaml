@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Serverlesspresso - Order Processing Service
+
+Parameters:
+  EventBusName:
+    Type: String
+    Default: serverlesspresso-dev
+  ConfigTableName:
+    Type: String
+    Default: serverlesspresso-config-dev
+  CountingTableName:
+    Type: String
+    Default: serverlesspresso-counting-dev
+  Source:
+    Type: String
+    Default: awsserverlessda.serverlesspresso
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 15
+    MemorySize: 128
+
+Resources:
+
+  ResumeWorkflowFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: serverlesspresso-resume-workflow
+      CodeUri: functions/resumeWF/
+      Handler: app.handler
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - states:SendTaskSuccess
+              Resource: "*"
+      Events:
+        Trigger:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref EventBusName
+            Pattern:
+              source:
+                - !Ref Source
+              detail-type:
+                - OrderManager.OrderCOMPLETED
+                - OrderManager.OrderCANCELLED
+
+  OrderProcessorStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: serverlesspresso-order-processor
+      DefinitionUri: statemachine/op.asl.json
+      Policies:
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref EventBusName
+        - DynamoDBReadPolicy:
+            TableName: !Ref ConfigTableName
+        - DynamoDBWritePolicy:
+            TableName: !Ref CountingTableName
+        - Statement:
+            - Effect: Allow
+              Action:
+                - states:ListExecutions
+              Resource: "*"
+      Events:
+        ValidatorNewOrder:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref EventBusName
+            Pattern:
+              source:
+                - !Ref Source
+              detail-type:
+                - Validator.NewOrder
+
+Outputs:
+  OrderProcessorStateMachineArn:
+    Description: Order Processor State Machine ARN
+    Value: !GetAtt OrderProcessorStateMachine.Arn
+
+  ResumeWorkflowFunctionArn:
+    Description: Resume Workflow Lambda ARN
+    Value: !GetAtt ResumeWorkflowFunction.Arn
