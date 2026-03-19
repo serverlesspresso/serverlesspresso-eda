@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Serverlesspresso - Counting Service
+
+Parameters:
+  CountingTableName:
+    Type: String
+    Default: serverlesspresso-counting-dev
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 15
+    MemorySize: 128
+    Environment:
+      Variables:
+        TableName: !Ref CountingTableName
+
+Resources:
+
+  GetOrderIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: serverlesspresso-get-order-id
+      CodeUri: ./
+      Handler: getOrderId.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CountingTableName
+
+  ResetOrderIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: serverlesspresso-reset-order-id
+      CodeUri: ./
+      Handler: resetOrderId.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CountingTableName
+
+Outputs:
+  GetOrderIdFunctionArn:
+    Description: Get Order ID Lambda ARN
+    Value: !GetAtt GetOrderIdFunction.Arn
+
+  ResetOrderIdFunctionArn:
+    Description: Reset Order ID Lambda ARN
+    Value: !GetAtt ResetOrderIdFunction.Arn

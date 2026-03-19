@@ -1,0 +1,14 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "serverlesspresso-counting-service"
+resolve_s3 = true
+s3_prefix = "serverlesspresso-counting-service"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "CountingTableName=\"serverlesspresso-counting-dev\""
+image_repositories = []
+
+[default.global.parameters]
+region = "us-east-1"
