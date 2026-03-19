@@ -1,0 +1,142 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Serverlesspresso - Order Manager Service
+
+Parameters:
+  EventBusName:
+    Type: String
+    Default: serverlesspresso-dev
+  OrderTableName:
+    Type: String
+    Default: serverlesspresso-orders-dev
+  ConfigTableName:
+    Type: String
+    Default: serverlesspresso-config-dev
+  Source:
+    Type: String
+    Default: awsserverlessda.serverlesspresso
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 15
+    MemorySize: 128
+
+Resources:
+
+  SanitizeOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: serverlesspresso-sanitize-order
+      CodeUri: functions/sanitize/
+      Handler: app.handler
+
+  WorkflowStartedFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: serverlesspresso-workflow-started
+      CodeUri: functions/workflowStarted/
+      Handler: app.handler
+      Environment:
+        Variables:
+          TableName: !Ref OrderTableName
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref OrderTableName
+      Events:
+        Trigger:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref EventBusName
+            Pattern:
+              source:
+                - !Ref Source
+              detail-type:
+                - prefix: OrderProcessor.WorkflowStarted
+
+  WaitingCompletionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: serverlesspresso-waiting-completion
+      CodeUri: functions/waitingCompletion/
+      Handler: app.handler
+      Environment:
+        Variables:
+          TableName: !Ref OrderTableName
+          BusName: !Ref EventBusName
+          Source: !Ref Source
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref OrderTableName
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref EventBusName
+      Events:
+        Trigger:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref EventBusName
+            Pattern:
+              source:
+                - !Ref Source
+              detail-type:
+                - prefix: OrderProcessor.WaitingCompletion
+
+  OrderTimedOutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: serverlesspresso-order-timed-out
+      CodeUri: functions/OrderTimedOut/
+      Handler: app.handler
+      Environment:
+        Variables:
+          TableName: !Ref OrderTableName
+          BusName: !Ref EventBusName
+          Source: !Ref Source
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref OrderTableName
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref EventBusName
+      Events:
+        Trigger:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref EventBusName
+            Pattern:
+              source:
+                - !Ref Source
+              detail-type:
+                - prefix: OrderProcessor.OrderTimeOut
+
+  OrderManagerStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: serverlesspresso-order-manager
+      DefinitionUri: statemachine/om.asl.json
+      DefinitionSubstitutions:
+        OMTable: !Ref OrderTableName
+        ConfigTable: !Ref ConfigTableName
+        SanitizeOrderLambda: !GetAtt SanitizeOrderFunction.Arn
+      Policies:
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref EventBusName
+        - LambdaInvokePolicy:
+            FunctionName: !Ref SanitizeOrderFunction
+        - DynamoDBReadPolicy:
+            TableName: !Ref ConfigTableName
+        - DynamoDBWritePolicy:
+            TableName: !Ref OrderTableName
+        - Statement:
+            - Effect: Allow
+              Action:
+                - states:SendTaskSuccess
+              Resource: "*"
+
+Outputs:
+  OrderManagerStateMachineArn:
+    Description: Order Manager State Machine ARN
+    Value: !GetAtt OrderManagerStateMachine.Arn
+
+  SanitizeOrderFunctionArn:
+    Description: Sanitize Order Lambda ARN
+    Value: !GetAtt SanitizeOrderFunction.Arn

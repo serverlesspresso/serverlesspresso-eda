@@ -1,0 +1,14 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "serverlesspresso-order-manager"
+resolve_s3 = true
+s3_prefix = "serverlesspresso-order-manager"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "EventBusName=\"serverlesspresso-dev\" OrderTableName=\"serverlesspresso-orders-dev\" ConfigTableName=\"serverlesspresso-config-dev\" Source=\"awsserverlessda.serverlesspresso\""
+image_repositories = []
+
+[default.global.parameters]
+region = "us-east-1"

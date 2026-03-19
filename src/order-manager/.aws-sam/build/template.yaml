@@ -1,0 +1,170 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Serverlesspresso - Order Manager Service
+Parameters:
+  EventBusName:
+    Type: String
+    Default: serverlesspresso-dev
+  OrderTableName:
+    Type: String
+    Default: serverlesspresso-orders-dev
+  ConfigTableName:
+    Type: String
+    Default: serverlesspresso-config-dev
+  Source:
+    Type: String
+    Default: awsserverlessda.serverlesspresso
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 15
+    MemorySize: 128
+Resources:
+  SanitizeOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: serverlesspresso-sanitize-order
+      CodeUri: SanitizeOrderFunction
+      Handler: app.handler
+    Metadata:
+      SamResourceId: SanitizeOrderFunction
+  WorkflowStartedFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: serverlesspresso-workflow-started
+      CodeUri: WorkflowStartedFunction
+      Handler: app.handler
+      Environment:
+        Variables:
+          TableName:
+            Ref: OrderTableName
+      Policies:
+      - DynamoDBWritePolicy:
+          TableName:
+            Ref: OrderTableName
+      Events:
+        Trigger:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName:
+              Ref: EventBusName
+            Pattern:
+              source:
+              - Ref: Source
+              detail-type:
+              - prefix: OrderProcessor.WorkflowStarted
+    Metadata:
+      SamResourceId: WorkflowStartedFunction
+  WaitingCompletionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: serverlesspresso-waiting-completion
+      CodeUri: WaitingCompletionFunction
+      Handler: app.handler
+      Environment:
+        Variables:
+          TableName:
+            Ref: OrderTableName
+          BusName:
+            Ref: EventBusName
+          Source:
+            Ref: Source
+      Policies:
+      - DynamoDBWritePolicy:
+          TableName:
+            Ref: OrderTableName
+      - EventBridgePutEventsPolicy:
+          EventBusName:
+            Ref: EventBusName
+      Events:
+        Trigger:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName:
+              Ref: EventBusName
+            Pattern:
+              source:
+              - Ref: Source
+              detail-type:
+              - prefix: OrderProcessor.WaitingCompletion
+    Metadata:
+      SamResourceId: WaitingCompletionFunction
+  OrderTimedOutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: serverlesspresso-order-timed-out
+      CodeUri: OrderTimedOutFunction
+      Handler: app.handler
+      Environment:
+        Variables:
+          TableName:
+            Ref: OrderTableName
+          BusName:
+            Ref: EventBusName
+          Source:
+            Ref: Source
+      Policies:
+      - DynamoDBWritePolicy:
+          TableName:
+            Ref: OrderTableName
+      - EventBridgePutEventsPolicy:
+          EventBusName:
+            Ref: EventBusName
+      Events:
+        Trigger:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName:
+              Ref: EventBusName
+            Pattern:
+              source:
+              - Ref: Source
+              detail-type:
+              - prefix: OrderProcessor.OrderTimeOut
+    Metadata:
+      SamResourceId: OrderTimedOutFunction
+  OrderManagerStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: serverlesspresso-order-manager
+      DefinitionUri: ../../statemachine/om.asl.json
+      DefinitionSubstitutions:
+        OMTable:
+          Ref: OrderTableName
+        ConfigTable:
+          Ref: ConfigTableName
+        SanitizeOrderLambda:
+          Fn::GetAtt:
+          - SanitizeOrderFunction
+          - Arn
+      Policies:
+      - EventBridgePutEventsPolicy:
+          EventBusName:
+            Ref: EventBusName
+      - LambdaInvokePolicy:
+          FunctionName:
+            Ref: SanitizeOrderFunction
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: ConfigTableName
+      - DynamoDBWritePolicy:
+          TableName:
+            Ref: OrderTableName
+      - Statement:
+        - Effect: Allow
+          Action:
+          - states:SendTaskSuccess
+          Resource: '*'
+Outputs:
+  OrderManagerStateMachineArn:
+    Description: Order Manager State Machine ARN
+    Value:
+      Fn::GetAtt:
+      - OrderManagerStateMachine
+      - Arn
+  SanitizeOrderFunctionArn:
+    Description: Sanitize Order Lambda ARN
+    Value:
+      Fn::GetAtt:
+      - SanitizeOrderFunction
+      - Arn
