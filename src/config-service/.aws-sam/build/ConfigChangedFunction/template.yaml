@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Serverlesspresso - Config Service
+
+Parameters:
+  EventBusName:
+    Type: String
+    Default: serverlesspresso-dev
+  ConfigTableStreamArn:
+    Type: String
+    Default: arn:aws:dynamodb:us-east-1:645804193376:table/serverlesspresso-config-dev/stream/2026-03-19T14:52:47.286
+  Source:
+    Type: String
+    Default: awsserverlessda.serverlesspresso
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 15
+    MemorySize: 128
+    Environment:
+      Variables:
+        EventBusName: !Ref EventBusName
+        Source: !Ref Source
+
+Resources:
+
+  ConfigChangedFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: serverlesspresso-config-changed
+      CodeUri: ./
+      Handler: configChanged.handler
+      Policies:
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref EventBusName
+      Events:
+        Stream:
+          Type: DynamoDB
+          Properties:
+            Stream: !Ref ConfigTableStreamArn
+            BatchSize: 1
+            StartingPosition: TRIM_HORIZON
+
+Outputs:
+  ConfigChangedFunctionArn:
+    Description: Config Changed Lambda ARN
+    Value: !GetAtt ConfigChangedFunction.Arn

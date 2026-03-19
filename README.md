@@ -1,6 +1,6 @@
 # Serverlesspresso — Event-Driven Architecture on AWS
 
-> A production-grade, fully serverless coffee ordering system built with event-driven architecture (EDA). Originally presented at AWS re:Invent 2021 and still running live at AWS events worldwide. This repository contains the **application layer** — Lambda functions, Step Functions workflow, and React frontend. Infrastructure is provisioned separately via Terraform in [serverlesspresso-infra](https://github.com/enezihe/serverlesspresso-infra).
+> A production-grade, fully serverless coffee ordering system built with event-driven architecture (EDA). Originally presented at AWS re:Invent 2021 and still running live at AWS events worldwide. This repository contains the **application layer** — Lambda functions, Step Functions workflow, and React frontend. Infrastructure is provisioned separately via Terraform in [serverlesspresso-infra](https://github.com/serverlesspresso/serverlesspresso-infra).
 
 ---
 
@@ -97,7 +97,7 @@ serverlesspresso-eda/
 - [Node.js](https://nodejs.org/) v20+
 - [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html) configured with your credentials
 - [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
-- Infrastructure stack already deployed from [serverlesspresso-infra](https://github.com/enezihe/serverlesspresso-infra)
+- Infrastructure stack already deployed from [serverlesspresso-infra](https://github.com/serverlesspresso/serverlesspresso-infra)
 
 ---
 
@@ -106,7 +106,7 @@ serverlesspresso-eda/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/enezihe/serverlesspresso-eda
+git clone https://github.com/serverlesspresso/serverlesspresso-eda
 cd serverlesspresso-eda
 ```
 
@@ -277,7 +277,7 @@ Estimated cost for 1,000 real coffee orders in production: under $1.
 > This repo contains **application code only**.
 > All AWS infrastructure — VPC, IAM roles, DynamoDB tables, Cognito user pool, EventBridge bus, S3 bucket, CloudFront distribution — is provisioned via Terraform in a separate repository:
 >
-> **[github.com/enezihe/serverlesspresso-infra](https://github.com/enezihe/serverlesspresso-infra)**
+> **[github.com/serverlesspresso/serverlesspresso-infra](https://github.com/serverlesspresso/serverlesspresso-infra)**
 >
 > Deploy the infrastructure first, then use its Terraform outputs to deploy this application.
 
