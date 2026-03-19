@@ -1,0 +1,14 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "serverlesspresso-validator-service"
+resolve_s3 = true
+s3_prefix = "serverlesspresso-validator-service"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "EventBusName=\"serverlesspresso-dev\" ValidatorTableName=\"serverlesspresso-validator-dev\" ConfigTableName=\"serverlesspresso-config-dev\" CognitoUserPoolArn=\"arn:aws:cognito-idp:us-east-1:645804193376:userpool/us-east-1_WdExdJVOa\" Source=\"serverlesspresso\" CodeLength=\"110\""
+image_repositories = []
+
+[default.global.parameters]
+region = "us-east-1"

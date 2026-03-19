@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: Serverlesspresso - Validator Service
+
+Parameters:
+  EventBusName:
+    Type: String
+    Default: serverlesspresso-dev
+  ValidatorTableName:
+    Type: String
+    Default: serverlesspresso-validator-dev
+  ConfigTableName:
+    Type: String
+    Default: serverlesspresso-config-dev
+  CognitoUserPoolArn:
+    Type: String
+    Default: arn:aws:cognito-idp:us-east-1:645804193376:userpool/us-east-1_WdExdJVOa
+  Source:
+    Type: String
+    Default: awsserverlessda.serverlesspresso
+  CodeLength:
+    Type: Number
+    Default: 10
+
+Globals:
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 15
+    MemorySize: 128
+    Environment:
+      Variables:
+        TableName: !Ref ValidatorTableName
+        BusName: !Ref EventBusName
+        Source: !Ref Source
+        CodeLength: !Ref CodeLength
+
+Resources:
+
+  ValidatorApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: serverlesspresso-validator-api
+      StageName: Prod
+      Cors:
+        AllowOrigin: "'*'"
+        AllowHeaders: "'*'"
+        AllowMethods: "'GET,POST,OPTIONS'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        AddDefaultAuthorizerToCorsPreflight: false
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !Ref CognitoUserPoolArn
+
+  GetCodeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: serverlesspresso-get-code
+      CodeUri: ./
+      Handler: getCode.handler
+      Environment:
+        Variables:
+          ConfigTableName: !Ref ConfigTableName
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ValidatorTableName
+        - DynamoDBReadPolicy:
+            TableName: !Ref ConfigTableName
+      Events:
+        GetCode:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ValidatorApi
+            Path: /qr-code
+            Method: GET
+
+  VerifyCodeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: serverlesspresso-verify-code
+      CodeUri: ./
+      Handler: verifyCode.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ValidatorTableName
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref EventBusName
+      Events:
+        VerifyCode:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ValidatorApi
+            Path: /qr-code
+            Method: POST
+
+Outputs:
+  ValidatorApiEndpoint:
+    Description: Validator API endpoint
+    Value: !Sub https://$\{ValidatorApi\}.execute-api.$\{AWS::Region\}.amazonaws.com/Prod/
+
+  GetCodeFunctionArn:
+    Description: Get Code Lambda ARN
+    Value: !GetAtt GetCodeFunction.Arn
+
+  VerifyCodeFunctionArn:
+    Description: Verify Code Lambda ARN
+    Value: !GetAtt VerifyCodeFunction.Arn
